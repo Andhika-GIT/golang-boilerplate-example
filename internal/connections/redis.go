@@ -10,12 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisClient struct {
-	Client *redis.Client
-}
-
 // NewRedis creates a new Redis client
-func NewRedisConnection(cfg *config.RedisConfig) (*RedisClient, error) {
+func NewRedisConnection(cfg *config.RedisConfig) (*redis.Client, error) {
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("redis is disabled in config")
 	}
@@ -34,5 +30,5 @@ func NewRedisConnection(cfg *config.RedisConfig) (*RedisClient, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	return &RedisClient{Client: rdb}, nil
+	return rdb, nil
 }

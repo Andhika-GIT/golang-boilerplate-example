@@ -12,13 +12,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// GormDatabase implements Database interface dengan GORM
-type GormDatabase struct {
-	db *gorm.DB
-}
-
 // NewPostgresConnection creates a new PostgreSQL connection dengan GORM
-func NewPostgresConnection(host string, port int, user, password, dbname, sslmode string) (*GormDatabase, error) {
+func NewPostgresConnection(host string, port int, user, password, dbname, sslmode string) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		host, port, user, password, dbname, sslmode,
@@ -50,11 +45,11 @@ func NewPostgresConnection(host string, port int, user, password, dbname, sslmod
 	}
 
 	log.Printf("✅ Connected to PostgreSQL: %s@%s:%d/%s", user, host, port, dbname)
-	return &GormDatabase{db: db}, nil
+	return db, nil
 }
 
 // NewMySQLConnection creates a new MySQL connection dengan GORM
-func NewMySQLConnection(host string, port int, user, password, dbname string) (*GormDatabase, error) {
+func NewMySQLConnection(host string, port int, user, password, dbname string) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
 		user, password, host, port, dbname,
@@ -86,5 +81,5 @@ func NewMySQLConnection(host string, port int, user, password, dbname string) (*
 	}
 
 	log.Printf("✅ Connected to MySQL: %s@%s:%d/%s", user, host, port, dbname)
-	return &GormDatabase{db: db}, nil
+	return db, nil
 }
