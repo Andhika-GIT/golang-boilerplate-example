@@ -1,1 +1,21 @@
 
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache bash curl ca-certificates git gcc g++ libc-dev make
+
+RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
+    | tar -xz -C /usr/local/bin
+
+RUN go install github.com/air-verse/air@latest
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+EXPOSE 3005
+
+CMD [ "air", "-c" ,".air.toml" ]

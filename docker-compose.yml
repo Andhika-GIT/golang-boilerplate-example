@@ -1,0 +1,39 @@
+version: "3.3"
+services:
+  db:
+    image: postgres:12
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=go_stream_dev
+    ports:
+      - "5440:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    container_name: gmbm-db-c-dev
+  be:
+    build:
+      context: ./be
+      dockerfile: dockerfile.dev
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./be/.env
+    volumes:
+      - ./be:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    container_name: gmbm-be-c-dev
+  redis:
+    image: redis:alpine
+    container_name: redis-pubsub-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    
+volumes:
+  pgdata-dev:
+  redis-data:
