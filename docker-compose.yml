@@ -11,23 +11,23 @@ services:
       - "5440:5432"
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
-    container_name: gmbm-db-c-dev
-  be:
+    container_name: db-c-dev
+  app:
     build:
       context: ./be
       dockerfile: dockerfile.dev
     ports:
       - "3005:3005"
     env_file:
-      - ./be/.env
+      - .env
     volumes:
-      - ./be:/app
+      - .:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    container_name: gmbm-be-c-dev
+    container_name: be-c-dev
   redis:
     image: redis:alpine
-    container_name: redis-pubsub-dev
+    container_name: redis-c-dev
     ports:
       - "6379:6379"
     volumes:
