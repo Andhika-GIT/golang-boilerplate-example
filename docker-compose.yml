@@ -14,8 +14,8 @@ services:
     container_name: db-c-dev
   app:
     build:
-      context: ./be
-      dockerfile: dockerfile.dev
+      context: .
+      dockerfile: dev.Dockerfile
     ports:
       - "3005:3005"
     env_file:
