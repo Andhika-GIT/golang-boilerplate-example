@@ -72,9 +72,15 @@ type RabbitMQConfig struct {
 }
 
 // Load loads configuration from environment variables
-func Load() *Config {
+func Load(envFiles ...string) *Config {
+
+	envFile := ".env"
+
+	if len(envFiles) > 0 && envFiles[0] != "" {
+		envFile = envFiles[0]
+	}
 	// Load .env file if exists (ignore error in production)
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load(envFile); err != nil {
 		log.Println("⚠️  No .env file found, using system environment variables")
 	}
 
