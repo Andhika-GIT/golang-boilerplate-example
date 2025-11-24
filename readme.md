@@ -11,6 +11,7 @@ A production-ready Go microservice with clean architecture, built with Gin, Cobr
 - [Getting Started](#getting-started)
 - [Development](#development)
 - [Database Migrations](#database-migrations)
+- [Database Seeders](#database-seeders)
 - [Commands Reference](#commands-reference)
 - [Configuration](#configuration)
 
@@ -29,7 +30,8 @@ This project follows **Clean Architecture** principles with clear separation of 
 │      cmd/commands/ (Cobra CLI)          │  CLI Layer
 │  ├── root.go                            │
 │  ├── server.go                          │
-│  └── migrate.go                         │
+│  ├── migrate.go                         │
+│  └── seeder.go                          │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -46,8 +48,7 @@ This project follows **Clean Architecture** principles with clear separation of 
 ┌─────────────────────────────────────────┐
 │   internal/connections/                 │  Low-Level Connections
 │  ├── database.go                        │  (Pure functions)
-│  ├── redis.go                           │
-│                        │
+│  └── redis.go                           │
 └─────────────────┬───────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
@@ -70,7 +71,8 @@ user-service/
 │   └── commands/                  # Cobra CLI commands
 │       ├── root.go                # Root command & registration
 │       ├── server.go              # HTTP server command
-│       └── migrate.go             # Database migration commands
+│       ├── migrate.go             # Database migration commands
+│       └── seeder.go              # Database seeder commands
 │
 ├── internal/
 │   ├── config/
@@ -78,17 +80,24 @@ user-service/
 │   │
 │   ├── connections/               # Low-level connections (pure functions)
 │   │   ├── database.go            # Database connection functions
-│   │   ├── redis.go               # Redis connection
-│   │  
+│   │   └── redis.go               # Redis connection
 │   │
 │   ├── infrastructure/            # High-level orchestration
 │   │   ├── connections.go         # Connection orchestrator
 │   │   └── di.go                  # Dependency injection
 │   │
 │   ├── database/
-│   │   └── migrations/            # SQL migration files
-│   │       ├── 000001_xxx.up.sql
-│   │       └── 000001_xxx.down.sql
+│   │   ├── migrations/            # SQL migration files
+│   │   │   ├── 000001_xxx.up.sql
+│   │   │   └── 000001_xxx.down.sql
+│   │   └── seeders/               # Database seeders
+│   │       ├── seeder.go          # Seeder registry
+│   │       ├── roles.seed.go
+│   │       └── users.seed.go
+│   │
+│   ├── models/                    # Data models
+│   │   ├── user.go
+│   │   └── role.go
 │   │
 │   ├── repositories/              # Data access layer
 │   │   ├── interfaces.go
@@ -179,7 +188,7 @@ Database (PostgreSQL/MySQL)
 ### 3. **Migration Flow**
 
 ```
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
     ↓
 commands/migrate.go → runMigrateUp()
     ↓
@@ -192,26 +201,44 @@ exec.Command("migrate", ...) ─→ Execute golang-migrate CLI
 Apply migrations to database
 ```
 
+### 4. **Seeder Flow**
+
+```
+make seed
+    ↓
+commands/seeder.go → runSeeder()
+    ↓
+config.Load() ──────────────→ Load configuration
+    ↓
+connections.NewDatabase() ──→ Initialize database connection
+    ↓
+seeders.InitSeeders(db) ────→ Register all seeders
+    ↓
+registry.RunAll() ──────────→ Execute seeders in order
+    ↓
+Seeders insert data to database
+```
+
 ---
 
 ## 🔧 Prerequisites
 
 - **Go 1.21+**
 - **Docker & Docker Compose**
-- **golang-migrate CLI** (installed in Docker, or locally for native development)
+- **Make** (usually pre-installed on Linux/macOS)
+- **golang-migrate CLI** (installed in Docker)
 
-### Install golang-migrate locally (optional):
+### Install Make (if needed):
 
 ```bash
-# macOS
-brew install golang-migrate
+# macOS (usually pre-installed)
+xcode-select --install
 
-# Linux
-curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz | tar xvz
-sudo mv migrate /usr/local/bin/
+# Ubuntu/Debian
+sudo apt-get install build-essential
 
-# Or via Go
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+# Windows
+choco install make
 ```
 
 ---
@@ -235,40 +262,64 @@ cp .env.example .env
 ### 3. Start Services
 
 ```bash
-# Start all services (PostgreSQL, Redis, App)
-docker-compose up -d
+# Build and start all services (PostgreSQL, Redis, App)
+make dev-compose-build
+make dev-compose-up
 
 # Check logs
-docker-compose logs -f app
+make dev-logs
+
+# Check specific service logs
+make dev-logs c=app
 ```
 
 ### 4. Run Migrations
 
 ```bash
-# Inside Docker container
-docker exec be-c-dev /app/tmp/main migrate up
+# Run all pending migrations
+make migrate-up
 
 # Check migration status
-docker exec be-c-dev /app/tmp/main migrate status
+make migrate-status
 ```
 
+### 5. Seed Database (Optional)
+
+```bash
+# Run all seeders
+make seed
+
+# Or run specific seeder
+make seed-specific name=RoleSeeder
+```
+
+---
 
 ## 💻 Development
 
-### Docker Development (Recommended)
+### Using Makefile (Recommended)
+
+All common tasks can be executed via Makefile commands:
 
 ```bash
-# Start services
-docker-compose up -d
+# View all available commands
+make help
 
-# View logs (with hot-reload via Air)
-docker-compose logs -f app
+# Start development environment
+make dev-compose-up
 
-# Execute commands in container
-docker exec be-c-dev /app/tmp/main [command]
+# View logs (hot-reload via Air)
+make dev-logs
+
+# View specific service logs
+make dev-logs c=app
+make dev-logs c=db
 
 # Stop services
-docker-compose down
+make dev-compose-stop
+
+# Stop and remove containers
+make dev-compose-down
 ```
 
 ### Local Development (Without Docker)
@@ -288,23 +339,20 @@ air -c .air.toml
 
 ## 🗄️ Database Migrations
 
-### Migration Commands (Inside Docker)
+### Migration Commands (Using Makefile)
 
 ```bash
 # Create new migration
-docker exec be-c-dev /app/tmp/main migrate create create_users_table
+make migrate-create name=create_users_table
 
 # Run all pending migrations
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
 
-# Rollback 1 migration
-docker exec be-c-dev /app/tmp/main migrate down
-
-# Rollback N migrations
-docker exec be-c-dev /app/tmp/main migrate down 3
+# Rollback migrations
+make migrate-down
 
 # Check migration status
-docker exec be-c-dev /app/tmp/main migrate status
+make migrate-status
 ```
 
 ### Migration Workflow
@@ -312,7 +360,7 @@ docker exec be-c-dev /app/tmp/main migrate status
 #### 1. Create Migration
 
 ```bash
-docker exec be-c-dev /app/tmp/main migrate create create_users_table
+make migrate-create name=create_users_table
 ```
 
 This creates two files:
@@ -324,12 +372,25 @@ This creates two files:
 **000001_create_users_table.up.sql:**
 ```sql
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    id CHAR(36) PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(250) UNIQUE,
+    phone VARCHAR(23) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_active BOOLEAN DEFAULT TRUE,
+    email_verified BOOLEAN DEFAULT FALSE,
+    email_verified_at TIMESTAMP NULL,
+    last_login_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL
+);
+
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+
+CREATE INDEX idx_users_email_verified ON users(email_verified);
+CREATE INDEX idx_users_is_active ON users(is_active);
+CREATE INDEX idx_users_created_at ON users(created_at);
 );
 
 CREATE INDEX idx_users_email ON users(email);
@@ -337,80 +398,185 @@ CREATE INDEX idx_users_email ON users(email);
 
 **000001_create_users_table.down.sql:**
 ```sql
-DROP INDEX IF EXISTS idx_users_email;
+-- Drop indexes
+DROP INDEX IF EXISTS idx_users_deleted_at;
+DROP INDEX IF EXISTS idx_users_email_verified;
+DROP INDEX IF EXISTS idx_users_is_active;
+DROP INDEX IF EXISTS idx_users_created_at;
+
+-- Drop table
 DROP TABLE IF EXISTS users;
 ```
 
 #### 3. Run Migration
 
 ```bash
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
 ```
 
 #### 4. Test Rollback (Optional)
 
 ```bash
-docker exec be-c-dev /app/tmp/main migrate down
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-down
+make migrate-up
+```
+
+---
+
+## 🌱 Database Seeders
+
+Seeders are used to populate the database with initial or test data.
+
+### Seeder Commands (Using Makefile)
+
+```bash
+# List all available seeders
+make seed-list
+
+# Run all seeders
+make seed
+
+# Run specific seeder
+make seed-specific name=RoleSeeder
+make seed-specific name=UserSeeder
+```
+
+### Creating New Seeder
+
+1. Create a new file in `internal/database/seeders/`:
+
+```go
+// internal/database/seeders/categories.seed.go
+package seeders
+
+import (
+    "gorm.io/gorm"
+    "your-project/internal/models"
+)
+
+type CategorySeeder struct{
+    db *gorm.DB
+}
+
+func (s *CategorySeeder) GetName() string {
+    return "CategorySeeder"
+}
+
+func (s *CategorySeeder) Seed() error {
+    categories := []models.Category{
+        {Name: "Technology", Slug: "technology"},
+        {Name: "Business", Slug: "business"},
+    }
+
+    for _, category := range categories {
+        var existing models.Category
+        if err := s.db.Where("slug = ?", category.Slug).First(&existing).Error; err != nil {
+            if err == gorm.ErrRecordNotFound {
+                if err := s.db.Create(&category).Error; err != nil {
+                    return err
+                }
+            } else {
+                return err
+            }
+        }
+    }
+    
+    return nil
+}
+```
+
+2. Register the seeder in `internal/database/seeders/seeder.go`:
+
+```go
+func InitSeeders(db *gorm.DB) *SeederRegistry {
+    registry := NewSeederRegistry(db)
+    
+    registry.Register(&RoleSeeder{db: db})
+    registry.Register(&UserSeeder{db: db})
+    registry.Register(&CategorySeeder{db: db}) // Add this line
+    
+    return registry
+}
+```
+
+3. Run the seeder:
+
+```bash
+make seed
+# or
+make seed-specific name=CategorySeeder
 ```
 
 ---
 
 ## 📖 Commands Reference
 
-### Server Commands
+### Docker Compose Commands
 
 ```bash
-# Start server (default port 8080)
-docker exec be-c-dev /app/tmp/main server
+# Build containers
+make dev-compose-build
 
-# Start with custom port
-docker exec be-c-dev /app/tmp/main server --port 9000
+# Start containers
+make dev-compose-up
+
+# Stop containers (keeps data)
+make dev-compose-stop
+
+# Stop and remove containers (removes data)
+make dev-compose-down
+
+# View logs
+make dev-logs                    # All services
+make dev-logs c=app             # App only
+make dev-logs c=db              # Database only
 ```
 
 ### Migration Commands
 
 ```bash
 # Create new migration
-docker exec be-c-dev /app/tmp/main migrate create [name]
+make migrate-create name=<migration_name>
 
 # Run all pending migrations
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
 
 # Rollback migrations
-docker exec be-c-dev /app/tmp/main migrate down [steps]
+make migrate-down
 
 # Show current migration version
-docker exec be-c-dev /app/tmp/main migrate status
+make migrate-status
 ```
 
-### Docker Commands
+### Seeder Commands
 
 ```bash
-# Start all services
-docker-compose up -d
+# List all available seeders
+make seed-list
 
-# Start specific service
-docker-compose up -d db
+# Run all seeders
+make seed
 
-# Stop all services
-docker-compose down
+# Run specific seeder
+make seed-specific name=<SeederName>
+```
 
-# View logs
-docker-compose logs -f app
-docker-compose logs -f db
+### Manual Docker Commands (Alternative)
 
-# Rebuild containers
-docker-compose up -d --build
-
+```bash
 # Access container shell
-docker exec -it be-c-dev sh
+docker exec -it app-c-dev sh
 
 # Access PostgreSQL
 docker exec -it db-c-dev psql -U postgres -d go_stream_dev
 
 # Access Redis
 docker exec -it redis-c-dev redis-cli
+
+# Direct command execution
+docker exec -it app-c-dev /app/tmp/main server
+docker exec -it app-c-dev /app/tmp/main migrate status
+docker exec -it app-c-dev /app/tmp/main seed
 ```
 
 ---
@@ -477,23 +643,25 @@ DB_PORT=5432  # Container port
 
 ```bash
 # Clean everything and start fresh
-docker-compose down -v
-docker-compose up -d
-docker exec be-c-dev /app/tmp/main migrate up
+make dev-compose-down
+make dev-compose-build
+make dev-compose-up
+make migrate-up
+make seed
 ```
 
 ### Add New Feature with Migration
 
 ```bash
 # 1. Create migration
-docker exec be-c-dev /app/tmp/main migrate create add_feature_x
+make migrate-create name=add_feature_x
 
 # 2. Edit SQL files
 # internal/database/migrations/00000X_add_feature_x.up.sql
 # internal/database/migrations/00000X_add_feature_x.down.sql
 
 # 3. Run migration
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
 
 # 4. Code changes will auto-reload via Air
 # Edit your Go files...
@@ -506,15 +674,34 @@ curl http://localhost:3005/api/v1/...
 
 ```bash
 # Rollback all migrations
-docker exec be-c-dev /app/tmp/main migrate down 999
+make migrate-down
 
-# Or recreate container
-docker-compose down -v db
-docker-compose up -d db
+# Or recreate container with fresh data
+make dev-compose-down
+make dev-compose-up
 
-# Wait for DB ready, then migrate
+# Wait for DB ready, then migrate and seed
 sleep 3
-docker exec be-c-dev /app/tmp/main migrate up
+make migrate-up
+make seed
+```
+
+### Development Cycle
+
+```bash
+# Start development
+make dev-compose-up
+make dev-logs
+
+# Make code changes (auto-reload via Air)
+# ...
+
+# Check logs
+make dev-logs c=app
+
+# Restart if needed
+make dev-compose-stop
+make dev-compose-up
 ```
 
 ---
@@ -528,35 +715,63 @@ docker exec be-c-dev /app/tmp/main migrate up
 docker ps | grep db-c-dev
 
 # Check DB logs
-docker-compose logs db
+make dev-logs c=db
 
 # Verify DB connection from app container
-docker exec be-c-dev ping host.docker.internal
+docker exec app-c-dev ping host.docker.internal
 ```
 
 ### Migration fails
 
 ```bash
 # Check migration status
-docker exec be-c-dev /app/tmp/main migrate status
+make migrate-status
 
 # Check if migrate CLI is available
-docker exec be-c-dev migrate -version
+docker exec app-c-dev migrate -version
 
 # View migration files
-docker exec be-c-dev ls -la /app/internal/database/migrations/
+docker exec app-c-dev ls -la /app/internal/database/migrations/
+```
+
+### Seeder fails
+
+```bash
+# List available seeders
+make seed-list
+
+# Check database connection
+make dev-logs c=db
+
+# Run specific seeder for debugging
+make seed-specific name=RoleSeeder
 ```
 
 ### Hot-reload not working
 
 ```bash
 # Check Air logs
-docker-compose logs -f app
+make dev-logs c=app
 
 # Restart app container
-docker-compose restart app
+make dev-compose-stop
+make dev-compose-up
 
 # Check .air.toml configuration
+```
+
+### Make command not found
+
+```bash
+# Install make
+# macOS
+xcode-select --install
+
+# Ubuntu/Debian
+sudo apt-get install build-essential
+
+# Windows
+choco install make
 ```
 
 ---
@@ -577,6 +792,16 @@ docker-compose restart app
 - **golang-migrate**: Database migrations
 - **Air**: Hot-reload for development
 - **Docker**: Containerization
+- **Make**: Task automation
+
+### Project Benefits
+
+- ✅ Hot-reload development with Air
+- ✅ Easy command execution via Makefile
+- ✅ Clean architecture with DI
+- ✅ Database migrations and seeders
+- ✅ Docker containerization
+- ✅ Ready for production deployment
 
 ---
 
@@ -585,5 +810,27 @@ docker-compose restart app
 1. Create feature branch
 2. Make changes
 3. Create migration if needed
-4. Test locally
-5. Submit pull request
+4. Create/update seeders if needed
+5. Test locally with `make dev-compose-up`
+6. Submit pull request
+
+---
+
+## 📝 Quick Reference Card
+
+```bash
+# Essential Commands
+make help                     # Show all commands
+make dev-compose-up          # Start development
+make dev-logs                # View logs
+make migrate-up              # Run migrations
+make seed                    # Populate database
+make dev-compose-down        # Stop everything
+
+# Development Workflow
+make dev-compose-build       # Build containers
+make migrate-create name=X   # Create migration
+make seed-specific name=X    # Run specific seeder
+make migrate-status          # Check migrations
+make seed-list               # List seeders
+```
