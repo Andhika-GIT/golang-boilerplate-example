@@ -27,8 +27,13 @@ dev-compose-down:
 
 .PHONY: dev-logs
 dev-logs:
-	@echo "📋 Showing container logs..."
-	docker compose logs -f
+ifdef c
+	@echo "📋 Showing logs for container: $(c)"
+	@docker compose logs -f $(c)
+else
+	@echo "📋 Showing all container logs..."
+	@docker compose logs -f
+endif
 
 # ============================================
 # DATABASE MIGRATION COMMANDS
@@ -86,7 +91,7 @@ help:
 	@echo "  make dev-compose-up       - Start development containers"
 	@echo "  make dev-compose-stop     - Stop development containers"
 	@echo "  make dev-compose-down     - Stop and remove development containers"
-	@echo "  make dev-logs             - Show container logs"
+	@echo "  make dev-logs c=<service> - Show container logs (specific or all)"
 	@echo ""
 	@echo "Database Migrations:"
 	@echo "  make migrate-up           - Run pending migrations"
