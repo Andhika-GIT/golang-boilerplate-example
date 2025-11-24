@@ -1,37 +1,100 @@
-# Makefile placeholder
+# Makefile for application commands
 .PHONY: help
 
+# ============================================
+# DOCKER COMPOSE COMMANDS
+# ============================================
 
 .PHONY: dev-compose-build
 dev-compose-build:
-	@echo "🚀 Starting Compose Build For Development..."
+	@echo "🚀 Building development containers..."
 	APP_ENV_FILE=.env APP_PORT=3005 docker compose build
 
 .PHONY: dev-compose-up
 dev-compose-up:
-	@echo "🚀 Starting Compose Up For Development..."
+	@echo "🚀 Starting development containers..."
 	APP_ENV_FILE=.env APP_PORT=3005 docker compose up -d
 
-.PHONY: dev-compose-Stop
+.PHONY: dev-compose-stop
 dev-compose-stop:
-	@echo "🛑 Stopping Development Containers..."
+	@echo "🛑 Stopping development containers..."
 	docker compose stop
 
 .PHONY: dev-compose-down
 dev-compose-down:
-	@echo "🛑 Stopping And Delete Development Containers..."
+	@echo "🛑 Stopping and removing development containers..."
 	docker compose down
 
+.PHONY: dev-logs
 dev-logs:
-	@echo "📋 Showing Container Logs..."
+	@echo "📋 Showing container logs..."
 	docker compose logs -f
 
+# ============================================
+# DATABASE MIGRATION COMMANDS
+# ============================================
+
+.PHONY: migrate-up
+migrate-up:
+	@echo "🔄 Running database migrations..."
+	@docker exec -it app-c-dev /app/tmp/main migrate up
+
+.PHONY: migrate-down
+migrate-down:
+	@echo "⏪ Rolling back migrations..."
+	@docker exec -it app-c-dev /app/tmp/main migrate down
+
+.PHONY: migrate-status
+migrate-status:
+	@echo "📊 Checking migration status..."
+	@docker exec -it app-c-dev /app/tmp/main migrate status
+
+.PHONY: migrate-create
+migrate-create:
+	@echo "📝 Creating new migration: $(name)"
+	@docker exec -it app-c-dev /app/tmp/main migrate create $(name)
+
+# ============================================
+# DATABASE SEEDER COMMANDS (DOCKER)
+# ============================================
+
+.PHONY: seed
+seed:
+	@echo "🌱 Running database seeders..."
+	@docker exec -it app-c-dev /app/tmp/main seed
+
+.PHONY: seed-specific
+seed-specific:
+	@echo "🌱 Running specific seeder..."
+	@docker exec -it app-c-dev /app/tmp/main seed --name $(name)
+
+.PHONY: seed-list
+seed-list:
+	@echo "📋 Listing available seeders..."
+	@docker exec -it app-c-dev /app/tmp/main seed --list
+
+# ============================================
+# HELP
+# ============================================
+
+.PHONY: help
 help:
 	@echo "Available commands:"
-	@echo "  make run env=.env.dev port=3005    - Custom env and port"
-	@echo "  make dev                          - Development (.env.dev)"
-	@echo "  make development                  - Development (.env.development)"
-	@echo "  make staging                      - Staging (.env.staging)"
-	@echo "  make prod                         - Production (.env.production)"
-	@echo "  make down                         - Stop and delete containers"
-	@echo "  make clean                        - Stop and remove volumes"
+	@echo ""
+	@echo "Docker Compose:"
+	@echo "  make dev-compose-build    - Build development containers"
+	@echo "  make dev-compose-up       - Start development containers"
+	@echo "  make dev-compose-stop     - Stop development containers"
+	@echo "  make dev-compose-down     - Stop and remove development containers"
+	@echo "  make dev-logs             - Show container logs"
+	@echo ""
+	@echo "Database Migrations:"
+	@echo "  make migrate-up           - Run pending migrations"
+	@echo "  make migrate-down         - Rollback migrations"
+	@echo "  make migrate-status       - Show migration status"
+	@echo "  make migrate-create name=<name> - Create new migration"
+	@echo ""
+	@echo "Database Seeders:"
+	@echo "  make seed                 - Run all seeders"
+	@echo "  make seed-specific name=<name> - Run specific seeder"
+	@echo "  make seed-list            - List available seeders"
