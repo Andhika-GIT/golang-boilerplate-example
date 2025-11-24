@@ -6,7 +6,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=go_stream_dev
+      - POSTGRES_DB=go_bp_dev
     ports:
       - "5440:5432"
     volumes:
@@ -24,7 +24,7 @@ services:
       - .:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    container_name: be-c-dev
+    container_name: app-c-dev
   redis:
     image: redis:alpine
     container_name: redis-c-dev
