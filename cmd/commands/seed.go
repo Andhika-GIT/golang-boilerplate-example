@@ -12,18 +12,18 @@ import (
 )
 
 // Command flags
-var spesificSeeder string
+var specificSeeder string
 var listSeeder bool
 
 // SeederCmd handles database seeding operations
 var SeederCmd = &cobra.Command{
-	Use:   "Seed",
+	Use:   "seed",
 	Short: "Start Database Seed",
 	Run:   runSeeder,
 }
 
 func init() {
-	SeederCmd.Flags().StringVarP(&spesificSeeder, "name", "n", "", "run specific seeder")
+	SeederCmd.Flags().StringVarP(&specificSeeder, "name", "n", "", "run specific seeder")
 	SeederCmd.Flags().BoolVarP(&listSeeder, "list", "l", false, "get all seeder list")
 }
 
@@ -60,8 +60,8 @@ func runSeeder(cmd *cobra.Command, args []string) {
 	}
 
 	// Handle specific seeder flag - run single seeder
-	if spesificSeeder != "" {
-		err := registry.RunSpecific(connections.DB, spesificSeeder)
+	if specificSeeder != "" {
+		err := registry.RunSpecific(connections.DB, specificSeeder)
 		if err != nil {
 			log.Print(err.Error())
 			return
